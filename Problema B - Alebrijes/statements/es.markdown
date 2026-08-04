@@ -34,12 +34,12 @@ Para cada caso de prueba, imprime una línea con `SI` si es posible ensamblar un
 1 2 3 4
 
 ||output
-SI
+NO
 SI
 NO
 
 ||description
-En el primer caso, Don Aurelio puede comenzar con la pieza de energía $8$. Después toma la pieza de energía $1$, que se encuentra en uno de los extremos del conjunto restante. Como la energía acumulada ya es suficiente, puede continuar tomando las piezas de energía $9$ y finalmente $2$, hasta completar el alebrije.
+En el primer caso, sin importar la pieza inicial, llegará un momento en el que ninguna de las piezas adyacentes podrá adherirse al alebrije, por lo que el ensamblaje no puede completarse.
 
 En el segundo caso también existe una forma de ensamblar todas las piezas respetando que cada nueva pieza debe tomarse desde alguno de los extremos del conjunto restante.
 

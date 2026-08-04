@@ -37,9 +37,9 @@ Imprime un solo entero, el máximo número de bailarines que pueden formar una s
 
 ||description
 
-La mejor idea es ordenar primero por $a$ de menor a mayor y, si empatan, por $b$ de mayor a menor. Así, la secuencia queda preparada para buscar una LIS sobre $b$.
+Se ordenan los bailarines por $a$ ascendente y, en empates, por $b$ descendente. La lista queda con $(2, 3)$, $(2, 2)$, $(3, 4)$, $(4, 1)$ y $(5, 5)$.
 
-En este caso, una secuencia válida máxima es formada por los bailarines con valores $(2,2)$, $(3,4)$ y $(5,5)$, por lo que la respuesta es $3$.
+La subsecuencia estrictamente creciente más larga sobre $b$ es $(2, 2)$, $(3, 4)$ y $(5, 5)$, por lo que la respuesta es $3$.
 
 ||input
 
