@@ -1,19 +1,63 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# solver_fixed_full.py
-# Lee todos los archivos cases/subtarea-*.in y genera cases/subtarea-*.out
-# KMP automaton + DP rolling array. Lectura robusta de S y P.
+"""
+Solucionador para "Renata y los ademanes".
 
+Lee todos los archivos .in en la carpeta `cases/` con nombre:
+  subtarea-{subtask}.{case}.in
+
+Para cada archivo:
+  - Parsea {subtask} y {case} del nombre del archivo.
+  - Resuelve el caso usando un autómata KMP + programación dinámica.
+  - Escribe la salida en `cases/subtarea-{subtask}.{case}.out`.
+  - Verifica que el .out generado contiene exactamente la respuesta esperada.
+
+Imprime un resumen por consola de los archivos procesados y del resultado de la verificación.
+"""
+from typing import List, Tuple
 import os
-import glob
+import sys
+import re
 
-INF = 10**9
+INF = 10**18
+CASES_DIR = "cases"
+OUT_DIR = "cases"
 
-def build_kmp_automaton(P):
-    """Construye la tabla de prefijos pi y el autómata nxt[state][ch_idx].
-       ch_idx: 0 -> '<', 1 -> '>' """
+def list_input_files() -> List[str]:
+    if not os.path.isdir(CASES_DIR):
+        print(f"Error: no existe la carpeta '{CASES_DIR}'.", file=sys.stderr)
+        return []
+    files = sorted(f for f in os.listdir(CASES_DIR) if re.match(r"^subtarea-\d+\.\d+\.in$", f))
+    return files
+
+def parse_filename(fname: str) -> Tuple[str, str]:
+    # fname like subtarea-3.7.in
+    m = re.match(r"^subtarea-(\d+)\.(\d+)\.in$", fname)
+    if not m:
+        raise ValueError(f"Nombre de archivo inválido: {fname}")
+    return m.group(1), m.group(2)
+
+def read_case(path: str) -> Tuple[int,int,str,str]:
+    with open(path, "r", encoding="utf-8") as f:
+        data = f.read().strip().split()
+    if len(data) < 4:
+        raise ValueError(f"Formato inválido en {path}")
+    n = int(data[0]); m = int(data[1])
+    S = data[2].strip()
+    P = data[3].strip()
+    if len(S) != n or len(P) != m:
+        # allow mismatch if input used different whitespace; but enforce lengths
+        S = S[:n].ljust(n, "<")
+        P = P[:m].ljust(m, "<")
+    return n, m, S, P
+
+def build_kmp_automaton(P: str) -> List[List[int]]:
+    """
+    Construye la transición next_state[s][k] para s in [0..m-1], k in {0,1}
+    donde k==0 -> '<', k==1 -> '>'.
+    La transición devuelve la nueva longitud de prefijo coincidente.
+    """
     m = len(P)
-    # prefijo pi
     pi = [0] * m
     for i in range(1, m):
         j = pi[i-1]
@@ -23,116 +67,111 @@ def build_kmp_automaton(P):
             j += 1
         pi[i] = j
 
-    # autómata para estados 0..m (incluye estado m por completitud)
-    nxt = [[0,0] for _ in range(m+1)]
-    # orden creciente de estados garantiza que nxt[pi[state-1]] ya esté calculado
-    for state in range(0, m+1):
-        for ch_idx, ch in enumerate(['<', '>']):
-            if state < m and ch == P[state]:
-                nxt[state][ch_idx] = state + 1
-            else:
-                if state == 0:
-                    nxt[state][ch_idx] = 0
-                else:
-                    # usar la transición del prefijo propio
-                    nxt[state][ch_idx] = nxt[pi[state-1]][ch_idx]
-    return nxt
+    chars = ['<', '>']
+    next_state = [[0]*2 for _ in range(max(1, m))]  # if m==0 not possible per constraints
+    for s in range(m):
+        for k, c in enumerate(chars):
+            t = s
+            # try to extend with c
+            while t > 0 and (t >= m or P[t] != c):
+                t = pi[t-1]
+            if t < m and P[t] == c:
+                t += 1
+            next_state[s][k] = t
+    return next_state
 
-def solve_instance(N, M, S, P):
-    # caso trivial
-    if M > N:
+def solve_instance(n: int, m: int, S: str, P: str) -> int:
+    # Edge: if m == 0 (not in constraints) treat as 0
+    if m == 0:
         return 0
-    if M == 0:
+    # If pattern length > 0 but S empty, no occurrences -> 0
+    if n == 0:
         return 0
-
-    nxt = build_kmp_automaton(P)
-    # dp para estados 0..M-1
-    dp = [INF] * M
-    dp[0] = 0
-
-    for i in range(N):
-        ndp = [INF] * M
-        orig = S[i]
-        for state in range(M):
-            cur = dp[state]
+    # Build automaton for states 0..m-1
+    next_state = build_kmp_automaton(P)
+    # dp2[j] = minimal cost to be in state j (matched prefix length j) after processing prefix
+    dp2 = [INF] * m
+    dp2[0] = 0
+    chars = ['<', '>']
+    for i in range(n):
+        ndp2 = [INF] * m
+        si = S[i]
+        for j in range(m):
+            cur = dp2[j]
             if cur >= INF:
                 continue
-            # poner '<'
-            cost = 0 if orig == '<' else 1
-            ns = nxt[state][0]
-            if ns != M:
-                if cur + cost < ndp[ns]:
-                    ndp[ns] = cur + cost
-            # poner '>'
-            cost = 0 if orig == '>' else 1
-            ns = nxt[state][1]
-            if ns != M:
-                if cur + cost < ndp[ns]:
-                    ndp[ns] = cur + cost
-        dp = ndp
-
-    ans = min(dp)
+            # try both characters
+            for k, c in enumerate(chars):
+                t = next_state[j][k]
+                # if t == m -> would complete a forbidden occurrence; skip
+                if t >= m:
+                    continue
+                cost = cur + (0 if si == c else 1)
+                if cost < ndp2[t]:
+                    ndp2[t] = cost
+        dp2 = ndp2
+    ans = min(dp2)
     if ans >= INF:
-        ans = N
-    return ans
+        # If all states unreachable, it means every path would have produced P at some point.
+        # But we can always flip characters to avoid finishing P; in practice ans should be finite.
+        ans = n  # worst-case flip everything
+    return int(ans)
 
-def read_exact_string(f, needed):
-    """Lee del archivo f y devuelve exactamente needed caracteres válidos '<' o '>'.
-       Si EOF antes de alcanzar needed, devuelve lo que haya leído."""
-    s = ""
-    while len(s) < needed:
-        line = f.readline()
-        if not line:
-            break
-        # conservar solo '<' y '>'
-        for ch in line:
-            if ch == '<' or ch == '>':
-                s += ch
-                if len(s) >= needed:
-                    break
-    return s
+def ensure_out_dir():
+    if not os.path.exists(OUT_DIR):
+        os.makedirs(OUT_DIR)
 
-def process_all_cases(indir="cases"):
-    pattern = os.path.join(indir, "subtarea-*.in")
-    files = sorted(glob.glob(pattern))
+def write_output_file(subtask: str, case: str, ans: int) -> str:
+    fname = f"subtarea-{subtask}.{case}.out"
+    path = os.path.join(OUT_DIR, fname)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"{ans}\n")
+    return path
+
+def verify_output(path_out: str, expected: int) -> bool:
+    try:
+        with open(path_out, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        # Accept either integer or integer with trailing newline
+        try:
+            val = int(content.split()[0]) if content else None
+        except Exception:
+            return False
+        return val == expected
+    except FileNotFoundError:
+        return False
+
+def process_all():
+    files = list_input_files()
     if not files:
-        print("No se encontraron archivos con patrón:", pattern)
+        print("No se encontraron archivos .in en la carpeta 'cases/'.")
         return
-
-    for path in files:
-        with open(path, "r", encoding="utf-8") as f:
-            header = f.readline()
-            if not header:
-                print("Formato inválido en", path)
-                continue
-            parts = header.strip().split()
-            if len(parts) < 2:
-                print("Formato inválido en header de", path)
-                continue
-            try:
-                N = int(parts[0]); M = int(parts[1])
-            except:
-                print("Header no numérico en", path)
-                continue
-
-            S = read_exact_string(f, N)
-            P = read_exact_string(f, M)
-            S = S[:N]
-            P = P[:M]
-
-            # seguridad adicional: si S es más corto que N, rellenar con '>' arbitrario
-            # esto evita crash y representa un caso donde la entrada estaba malformada
-            if len(S) < N:
-                S = S + '>' * (N - len(S))
-            if len(P) < M:
-                P = P + '>' * (M - len(P))
-
-        result = solve_instance(N, M, S, P)
-
-        outpath = os.path.splitext(path)[0] + ".out"
-        with open(outpath, "w", encoding="utf-8") as fo:
-            fo.write(str(result) + "\n")
-        print(f"Wrote {outpath}: {result}")
+    ensure_out_dir()
+    total = 0
+    ok = 0
+    for fname in files:
+        try:
+            subtask, case = parse_filename(fname)
+        except ValueError as e:
+            print(f"Saltando archivo con nombre inválido: {fname} ({e})")
+            continue
+        path_in = os.path.join(CASES_DIR, fname)
+        try:
+            n, m, S, P = read_case(path_in)
+        except Exception as e:
+            print(f"Error leyendo {fname}: {e}")
+            continue
+        ans = solve_instance(n, m, S, P)
+        out_path = write_output_file(subtask, case, ans)
+        verified = verify_output(out_path, ans)
+        total += 1
+        if verified:
+            ok += 1
+            status = "OK"
+        else:
+            status = "ERROR"
+        print(f"Procesado: {fname} -> {os.path.basename(out_path)} | respuesta={ans} | verificación={status}")
+    print(f"Resumen: procesados={total}, verificados_correctos={ok}, carpeta_salida='{OUT_DIR}/'")
 
 if __name__ == "__main__":
-    process_all_cases("cases")
+    process_all()

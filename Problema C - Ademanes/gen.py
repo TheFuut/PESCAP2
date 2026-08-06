@@ -1,231 +1,329 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Generador de casos para "Renata y los ademanes"
-# Crea archivos en la carpeta cases/ con nombres: subtarea-{subtask}.{case}.in
+"""
+Generador determinista de casos de prueba para el problema:
+"Renata y los ademanes"
+
+Crea archivos en la carpeta `cases/` con nombres:
+  subtarea-{subtask}.{case}.in
+
+Cada archivo contiene:
+  N M
+  S
+  P
+
+El generador es determinista (semilla fija).
+Imprime un resumen de los archivos generados.
+"""
 
 import os
 import random
+from typing import Tuple
 
-OUTDIR = "cases"
-os.makedirs(OUTDIR, exist_ok=True)
-random.seed(123456)  # reproducible
+SEED = 12345
+OUT_DIR = "cases"
 
-def write_case(subtask, idx, N, M, S, P):
-    fname = f"subtarea-{subtask}.{idx}.in"
-    path = os.path.join(OUTDIR, fname)
+# Número de casos por subtarea (según enunciado)
+CASES_PER_SUBTASK = {
+    1: 10,
+    2: 15,
+    3: 10,
+    4: 25,
+    5: 15,
+}
+
+# Límites globales
+N_MAX = 2 * 10**5
+M_MAX = 400
+
+random.seed(SEED)
+
+
+def ensure_out_dir():
+    if not os.path.exists(OUT_DIR):
+        os.makedirs(OUT_DIR)
+
+
+def write_case(subtask: int, idx: int, N: int, M: int, S: str, P: str):
+    filename = f"subtarea-{subtask}.{idx}.in"
+    path = os.path.join(OUT_DIR, filename)
     with open(path, "w", encoding="utf-8") as f:
         f.write(f"{N} {M}\n")
         f.write(S + "\n")
         f.write(P + "\n")
-    print("Wrote", path)
+    print(f"Generado: {filename} (N={N}, M={M})")
 
-def repeat_char(c, n): return c * n
-def alt(c1, c2, n): return "".join(c1 if i%2==0 else c2 for i in range(n))
-def random_string(n):
-    return "".join(random.choice("<>") for _ in range(n))
 
-# Helper to produce a string that contains many overlapping occurrences of P
-def build_overlapping_S(P, repeats, extra_tail=""):
-    # concatenate P with overlaps by appending P[1:] repeatedly to maximize overlaps
-    if len(P) <= 1:
-        return P * repeats + extra_tail
-    s = P
-    for _ in range(repeats-1):
-        s += P[1:]
-    s += extra_tail
-    return s
+def alternating_string(n: int, start_char: str = "<") -> str:
+    other = ">" if start_char == "<" else "<"
+    return "".join(start_char if i % 2 == 0 else other for i in range(n))
 
-# ---------- Subtarea 1: 10 casos (N <= 20, M <= 20) ----------
-sub = 1
-cases = []
-# 1: trivial small, P length 1, S contains it many times
-cases.append((5,1, "<><><", "<"))
-# 2: trivial small, S already safe
-cases.append((3,1, ">>>", "<"))
-# 3: M > N
-cases.append((5,6, "<><><", "<><><>"))
-# 4: S == P
-cases.append((6,6, "<><><>", "<><><>"))
-# 5: all same char, P same char
-cases.append((10,3, ">>>>>>>>>>", ">>>"))
-# 6: alternating pattern, P alternating
-cases.append((12,3, alt("<", ">", 12), "<><"))
-# 7: small exhaustive-ish
-cases.append((8,4, "<><<<><>", "><><"))
-# 8: M = N = 1
-cases.append((1,1, "<", "<"))
-# 9: M = 2, overlapping P like "><>"
-cases.append((7,3, "><><><>", "><>"))
-# 10: random small
-cases.append((20,5, random_string(20), random_string(5)))
 
-for i,(N,M,S,P) in enumerate(cases, start=1):
-    write_case(sub, i, N, M, S, P)
+def block_string(n: int, block_size: int, start_char: str = "<") -> str:
+    s = []
+    cur = start_char
+    i = 0
+    while i < n:
+        take = min(block_size, n - i)
+        s.append(cur * take)
+        cur = ">" if cur == "<" else "<"
+        i += take
+    return "".join(s)
 
-# ---------- Subtarea 2: 15 casos (N <= 1000, M <= 100) ----------
-sub = 2
-cases2 = []
-# 1: N small, M small
-cases2.append((20,5, alt("<", ">", 20), "<><><"))
-# 2: N medium, P single char
-cases2.append((100,1, random_string(100), "<"))
-# 3: N medium, P not present
-cases2.append((150,3, ">"*150, "<><"))
-# 4: repeated P many times
-P = "<><"
-S = build_overlapping_S(P, 30, extra_tail="<>")
-cases2.append((len(S), len(P), S, P))
-# 5: random
-cases2.append((200,10, random_string(200), random_string(10)))
-# 6: P equals alternating of length 50
-cases2.append((300,50, alt("<", ">", 300), alt("<", ">", 50)))
-# 7: S contains many disjoint occurrences
-P = "<<<>>>"
-S = ("x" )  # placeholder
-S = "<<<>>>"+">"*50+"<<<>>>"+ "<"*30 + "<<<>>>"
-cases2.append((len(S), len(P), S, P))
-# 8: M > N
-cases2.append((50,60, random_string(50), random_string(60)))
-# 9: S all '<', P alternating
-cases2.append((120,4, "<"*120, "<><>"))
-# 10: S all '>', P '>'
-cases2.append((80,1, ">"*80, ">"))
-# 11: random
-cases2.append((500,20, random_string(500), random_string(20)))
-# 12: crafted overlapping P like "<<<" (self-overlap)
-cases2.append((200,3, build_overlapping_S("<<<", 50), "<<<"))
-# 13: P long but <=100
-cases2.append((1000,100, random_string(1000), random_string(100)))
-# 14: alternating with one flip to break many matches
-S = alt("<", ">", 200)
-S = S[:100] + "<" + S[101:]
-cases2.append((200,3, S, "<><"))
-# 15: small edge
-cases2.append((1,1, ">", "<"))
 
-for i,(N,M,S,P) in enumerate(cases2, start=1):
-    write_case(sub, i, N, M, S, P)
+def random_string(n: int, p_left: float = 0.5) -> str:
+    return "".join("<" if random.random() < p_left else ">" for _ in range(n))
 
-# ---------- Subtarea 3: 10 casos (M <= 20, focus on small M) ----------
-sub = 3
-cases3 = []
-# exhaustive-like: N=20, M=20 (equal)
-cases3.append((20,20, random_string(20), random_string(20)))
-# M=20 but S shorter
-cases3.append((10,20, random_string(10), random_string(20)))
-# M small, many overlaps
-cases3.append((20,3, build_overlapping_S("<><", 10), "<><"))
-# all '<' with P of mixed
-cases3.append((20,5, "<"*20, "<><><"))
-# alternating S, P single char
-cases3.append((20,1, alt("<", ">", 20), ">"))
-# random small
-cases3.append((15,4, random_string(15), random_string(4)))
-# P equals "><><"
-cases3.append((18,4, "><><><><><><><><", "><><"))
-# M=2, many positions
-cases3.append((20,2, random_string(20), "<>"))
-# M=19 near limit
-cases3.append((20,19, random_string(20), random_string(19)))
-# M=1 edge
-cases3.append((20,1, "<"*10 + ">"*10, "<"))
 
-for i,(N,M,S,P) in enumerate(cases3, start=1):
-    write_case(sub, i, N, M, S, P)
+def repeat_pattern(pattern: str, n: int) -> str:
+    # repeat pattern to length n (may cut last repetition)
+    return (pattern * ((n // len(pattern)) + 2))[:n]
 
-# ---------- Subtarea 4: 25 casos (N up to 2e5, M <= 100) ----------
-sub = 4
-cases4 = []
-# 1: N large, M small, alternating S
-cases4.append((200000,3, alt("<", ">", 200000), "<><"))
-# 2: N large, P single char
-cases4.append((200000,1, ">"*200000, "<"))
-# 3: N large, P not present
-cases4.append((200000,2, "<"*200000, "><"))
-# 4: N large, P repeated overlapping
-P = "<><><"
-S = build_overlapping_S(P, 40000)  # will be long; but ensure length <= 200000
-S = S[:200000]
-cases4.append((len(S), len(P), S, P))
-# 5: N large, P length 100 (max for subtask)
-cases4.append((200000,100, random_string(200000), random_string(100)))
-# 6: many small blocks
-S = ("<"*50000) + (">"*50000) + ("<"*50000) + (">"*50000)
-cases4.append((len(S), 4, S, "<><>"))
-# 7: alternating with one long tail
-S = alt("<", ">", 199990) + "<"*10
-cases4.append((len(S), 5, S, "<><><"))
-# 8: P self-overlapping pattern
-P = "<<<>>>"
-S = build_overlapping_S(P, 30000)[:200000]
-cases4.append((len(S), len(P), S, P))
-# 9: random large
-cases4.append((150000,50, random_string(150000), random_string(50)))
-# 10: M > N (small N)
-cases4.append((50,60, random_string(50), random_string(60)))
-# 11..25: mix of random and crafted
-for k in range(11,26):
-    if k % 3 == 0:
-        N = 200000
-        M = 100
-        S = random_string(N)
-        P = random_string(M)
-    elif k % 3 == 1:
-        N = 200000
-        M = 10
-        # make S with many occurrences of a short P
-        P = "<><><><><"
-        S = build_overlapping_S(P, 40000)[:N]
+
+def make_case_varieties(N: int, M: int, variant: str) -> Tuple[str, str]:
+    """
+    Devuelve (S, P) según la variante solicitada.
+    variant puede ser:
+      'alternating', 'alternating_start_right', 'blocks_small', 'blocks_large',
+      'random_balanced', 'random_skewed_left', 'random_skewed_right',
+      'S_all_left', 'S_all_right', 'P_all_left', 'P_all_right',
+      'overlapping', 'P_longer', 'P_equal', 'P_one', 'S_small_random'
+    """
+    if variant == "alternating":
+        S = alternating_string(N, "<")
+        P = alternating_string(M, "<")
+    elif variant == "alternating_start_right":
+        S = alternating_string(N, ">")
+        P = alternating_string(M, ">")
+    elif variant == "blocks_small":
+        S = block_string(N, max(1, M // 2 or 1), "<")
+        P = "<" * M  # pattern of same char to force overlaps
+    elif variant == "blocks_large":
+        S = block_string(N, max(1, N // 5), "<")
+        P = ">" * M
+    elif variant == "random_balanced":
+        S = random_string(N, 0.5)
+        P = random_string(M, 0.5)
+    elif variant == "random_skewed_left":
+        S = random_string(N, 0.7)
+        P = random_string(M, 0.6)
+    elif variant == "random_skewed_right":
+        S = random_string(N, 0.3)
+        P = random_string(M, 0.4)
+    elif variant == "S_all_left":
+        S = "<" * N
+        P = random_string(M, 0.5)
+    elif variant == "S_all_right":
+        S = ">" * N
+        P = random_string(M, 0.5)
+    elif variant == "P_all_left":
+        S = random_string(N, 0.5)
+        P = "<" * M
+    elif variant == "P_all_right":
+        S = random_string(N, 0.5)
+        P = ">" * M
+    elif variant == "overlapping":
+        # create S with long runs to create many overlapping occurrences of P
+        base = "<" * max(1, M - 1)
+        S = repeat_pattern(base, N)
+        P = "<" * M
+    elif variant == "P_longer":
+        # P longer than S (M > N)
+        S = random_string(N, 0.5)
+        P = random_string(M, 0.5)
+    elif variant == "P_equal":
+        S = random_string(N, 0.5)
+        P = random_string(M, 0.5)
+    elif variant == "P_one":
+        S = random_string(N, 0.5)
+        P = "<" if random.random() < 0.5 else ">"
+    elif variant == "S_small_random":
+        S = random_string(N, 0.5)
+        P = random_string(M, 0.5)
+    elif variant == "repeat_short_pattern":
+        pat = random.choice(["<>", "><", "<<<", ">>>", "<><"])
+        S = repeat_pattern(pat, N)
+        P = pat * (M // len(pat) + 1)
+        P = P[:M]
     else:
-        N = 100000
-        M = 20
-        S = alt("<", ">", N)
-        P = alt("<", ">", M)
-    cases4.append((N,M,S,P))
+        # fallback
+        S = random_string(N, 0.5)
+        P = random_string(M, 0.5)
 
-for i,(N,M,S,P) in enumerate(cases4, start=1):
-    write_case(sub, i, N, M, S, P)
+    # Safety: ensure lengths
+    S = S[:N].ljust(N, "<")
+    P = P[:M].ljust(M, "<")
+    return S, P
 
-# ---------- Subtarea 5: 15 casos (full constraints: N up to 2e5, M up to 400) ----------
-sub = 5
-cases5 = []
-# 1: N max, M max
-cases5.append((200000,400, random_string(200000), random_string(400)))
-# 2: N max, P single char
-cases5.append((200000,1, "<"*200000, ">"))
-# 3: N max, P length 400 but repetitive to cause overlaps
-P = ("<>" * 200)  # length 400
-S = build_overlapping_S(P, 1000)[:200000]
-cases5.append((len(S), len(P), S, P))
-# 4: N max, P not present
-cases5.append((200000,50, ">"*200000, "<"*50))
-# 5: N small, M large (M>N)
-cases5.append((100,200, random_string(100), random_string(200)))
-# 6: alternating S, P long alternating
-cases5.append((200000,300, alt("<", ">", 200000), alt("<", ">", 300)))
-# 7: S equals P repeated many times
-P = random_string(100)
-S = P * (200000 // len(P))
-S = S[:200000]
-cases5.append((len(S), len(P), S, P))
-# 8: many disjoint occurrences
-P = "<"*20
-S = (P + ">"*50) * 2000
-S = S[:200000]
-cases5.append((len(S), len(P), S, P))
-# 9: self-overlap worst-case
-P = "<" * 400  # all same char, maximum M
-S = "<" * 200000
-cases5.append((200000,400,S,P))
-# 10..15: random large cases
-for k in range(10,16):
-    N = random.choice([50000,100000,150000,200000])
-    M = random.randint(1,400)
-    S = random_string(N)
-    P = random_string(M)
-    cases5.append((N,M,S,P))
 
-for i,(N,M,S,P) in enumerate(cases5, start=1):
-    write_case(sub, i, N, M, S, P)
+def gen_subtask_1():
+    """Subtarea 1: N <= 20, M <= 20 (10 casos)"""
+    sub = 1
+    cnt = CASES_PER_SUBTASK[sub]
+    idx = 1
+    variants = [
+        ("small_alt", 5, 3, "alternating"),
+        ("small_alt2", 7, 3, "alternating_start_right"),
+        ("all_left_small", 10, 3, "S_all_left"),
+        ("all_right_small", 12, 1, "S_all_right"),
+        ("overlap_small", 8, 3, "overlapping"),
+        ("random_small", 15, 5, "random_balanced"),
+        ("P_longer", 5, 7, "P_longer"),  # M > N
+        ("P_one_cases", 6, 1, "P_one"),
+        ("blocks_small", 20, 4, "blocks_small"),
+        ("repeat_short", 18, 5, "repeat_short_pattern"),
+    ]
+    for name, N, M, variant in variants[:cnt]:
+        S, P = make_case_varieties(N, M, variant)
+        write_case(sub, idx, N, M, S, P)
+        idx += 1
 
-print("Generación completada. Archivos en:", OUTDIR)
+
+def gen_subtask_2():
+    """Subtarea 2: N <= 1000, M <= 50 (15 casos)"""
+    sub = 2
+    cnt = CASES_PER_SUBTASK[sub]
+    idx = 1
+    # mix of edge and random
+    cases = []
+    # small N, small M
+    cases.append((50, 3, "alternating"))
+    cases.append((100, 1, "P_one"))
+    cases.append((200, 50, "random_balanced"))  # M at upper bound for subtask
+    cases.append((500, 10, "blocks_large"))
+    cases.append((1000, 20, "random_skewed_left"))
+    cases.append((999, 50, "P_equal"))
+    cases.append((250, 60 if 60 <= M_MAX else 50, "random_balanced"))  # ensure M<=M_MAX
+    # crafted to create many overlapping occurrences
+    cases.append((300, 3, "overlapping"))
+    cases.append((400, 4, "repeat_short_pattern"))
+    cases.append((1000, 1, "S_all_right"))
+    cases.append((800, 2, "alternating"))
+    cases.append((700, 7, "blocks_small"))
+    cases.append((123, 5, "random_skewed_right"))
+    cases.append((321, 15, "random_balanced"))
+    cases.append((100, 101 if 101 <= M_MAX else 50, "P_longer"))  # M > N scenario if possible
+
+    for N, M, variant in cases[:cnt]:
+        # clamp M to allowed for this subtask (<=50) and global M_MAX
+        M = min(M, 50, M_MAX)
+        S, P = make_case_varieties(N, M, variant)
+        write_case(sub, idx, N, M, S, P)
+        idx += 1
+
+
+def gen_subtask_3():
+    """Subtarea 3: M <= 20 (10 casos). N can be large."""
+    sub = 3
+    cnt = CASES_PER_SUBTASK[sub]
+    idx = 1
+    cases = []
+    # include very large N
+    cases.append((N_MAX, 1, "P_one"))
+    cases.append((N_MAX, 2, "alternating"))
+    cases.append((200000, 20, "overlapping"))
+    cases.append((150000, 20, "S_all_left"))
+    cases.append((100000, 5, "random_balanced"))
+    cases.append((50000, 3, "repeat_short_pattern"))
+    cases.append((25000, 4, "blocks_large"))
+    cases.append((12345, 7, "random_skewed_right"))
+    cases.append((9999, 20, "P_all_left"))
+    cases.append((1, 1, "P_one"))  # minimal edge
+
+    for N, M, variant in cases[:cnt]:
+        M = min(M, 20, M_MAX)
+        S, P = make_case_varieties(N, M, variant)
+        write_case(sub, idx, N, M, S, P)
+        idx += 1
+
+
+def gen_subtask_4():
+    """Subtarea 4: M <= 100 (25 casos)."""
+    sub = 4
+    cnt = CASES_PER_SUBTASK[sub]
+    idx = 1
+    cases = []
+
+    # Mix many sizes and patterns
+    sizes = [10, 20, 50, 100, 200, 500, 1000, 5000, 10000, 20000]
+    variants = [
+        "alternating", "alternating_start_right", "blocks_small", "blocks_large",
+        "random_balanced", "random_skewed_left", "random_skewed_right",
+        "S_all_left", "S_all_right", "P_all_left", "P_all_right",
+        "overlapping", "repeat_short_pattern", "P_one"
+    ]
+
+    # create combinations
+    for s in sizes:
+        for v in variants:
+            m = random.randint(1, min(100, M_MAX))
+            cases.append((min(s, N_MAX), m, v))
+            if len(cases) >= cnt:
+                break
+        if len(cases) >= cnt:
+            break
+
+    # If not enough, add random ones
+    while len(cases) < cnt:
+        N = random.randint(1, min(20000, N_MAX))
+        M = random.randint(1, min(100, M_MAX))
+        variant = random.choice(variants)
+        cases.append((N, M, variant))
+
+    for N, M, variant in cases[:cnt]:
+        M = min(M, 100, M_MAX)
+        S, P = make_case_varieties(N, M, variant)
+        write_case(sub, idx, N, M, S, P)
+        idx += 1
+
+
+def gen_subtask_5():
+    """Subtarea 5: Sin restricciones adicionales (15 casos)."""
+    sub = 5
+    cnt = CASES_PER_SUBTASK[sub]
+    idx = 1
+    cases = []
+
+    # include extreme large N and M up to 400
+    cases.append((N_MAX, 400, "random_balanced"))
+    cases.append((N_MAX, 400, "S_all_left"))
+    cases.append((N_MAX, 1, "P_one"))
+    cases.append((200000, 400, "overlapping"))
+    cases.append((150000, 300, "repeat_short_pattern"))
+    cases.append((100000, 200, "random_skewed_left"))
+    cases.append((50000, 100, "blocks_large"))
+    cases.append((40000, 399, "random_balanced"))
+    cases.append((30000, 400, "P_all_right"))
+    cases.append((25000, 250, "alternating"))
+    cases.append((20000, 201, "P_longer"))  # maybe M > N if chosen
+    cases.append((10000, 400, "blocks_small"))
+    cases.append((5000, 50, "random_balanced"))
+    cases.append((1234, 400, "random_skewed_right"))
+    cases.append((2, 2, "alternating"))
+
+    for N, M, variant in cases[:cnt]:
+        M = min(M, M_MAX)
+        # allow M > N in some cases intentionally (P_longer)
+        if variant == "P_longer" and M <= N:
+            # force M > N if possible
+            M = min(M + 5, M_MAX)
+            if M <= N:
+                M = min(N + 1, M_MAX)
+        S, P = make_case_varieties(N, M, variant)
+        write_case(sub, idx, N, M, S, P)
+        idx += 1
+
+
+def main():
+    ensure_out_dir()
+    print("Iniciando generación de casos (semilla fija = {}).".format(SEED))
+    gen_subtask_1()
+    gen_subtask_2()
+    gen_subtask_3()
+    gen_subtask_4()
+    gen_subtask_5()
+    print("Generación completada. Archivos guardados en la carpeta 'cases/'.")
+
+
+if __name__ == "__main__":
+    main()

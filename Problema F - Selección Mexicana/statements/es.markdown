@@ -1,22 +1,18 @@
 # Selección Mexicana
 
-Después de analizar el rendimiento de cientos de futbolistas, el director técnico de la Selección Mexicana ha reducido la lista a $N$ candidatos para disputar el siguiente torneo internacional.
+Después de meses de seguimiento en la liga local y en el extranjero, el director técnico de la Selección Mexicana está listo para anunciar la convocatoria final para el próximo torneo internacional.
 
-Sin embargo, la convocatoria no depende únicamente del nivel de cada jugador. Existen diversas condiciones deportivas y de convivencia:
+La lista de candidatos ya está definida, pero elaborar la convocatoria no es tan sencillo como elegir a los mejores jugadores. El cuerpo técnico debe tomar en cuenta compromisos adquiridos con algunos futbolistas, conflictos dentro del vestidor y decisiones estratégicas sobre ciertas posiciones.
 
-- algunos jugadores sólo aceptan asistir si otro también es convocado;
-- algunos futbolistas no pueden coincidir en la misma convocatoria;
-- en ciertos casos, al menos uno de dos jugadores debe formar parte del equipo.
+Antes de publicar la lista definitiva, el entrenador quiere comprobar que todas esas condiciones puedan cumplirse al mismo tiempo. Si alguna de ellas entra en conflicto con las demás, será imposible anunciar una convocatoria válida.
 
-El cuerpo técnico quiere saber si existe alguna convocatoria que satisfaga todas las condiciones impuestas.
-
-Tu tarea es determinar si es posible formar una convocatoria válida.
+Tu tarea es determinar si existe alguna forma de elegir a los jugadores convocados respetando todas las condiciones establecidas.
 
 # Descripción
 
-Se tienen $N$ jugadores numerados del $1$ al $N$. Cada jugador puede ser o no convocado.
+Se tienen $N$ jugadores numerados del $1$ al $N$. Cada jugador puede ser **convocado** o **no convocado**.
 
-También se proporcionan $M$ restricciones. Cada restricción pertenece a uno de los siguientes tipos:
+Además, se proporcionan $M$ condiciones. Cada una pertenece a uno de los siguientes tipos:
 
 - $1 \ A \ B$ - Si el jugador $A$ es convocado, entonces el jugador $B$ también debe ser convocado.
 - $2 \ A \ B$ - Los jugadores $A$ y $B$ no pueden ser convocados al mismo tiempo.
@@ -28,11 +24,11 @@ Determina si es posible anunciar una convocatoria que cumpla con todas las condi
 
 La primera línea contiene dos enteros $N$ y $M$, que representan el número de jugadores y el número de condiciones, respectivamente.
 
-Cada una de las siguientes $M$ líneas describe una condición mediante tres enteros $T, A$ y $B$, donde $T$ indica el tipo de condición y $A$ y $B$ los jugadores.
+Cada una de las siguientes $M$ líneas contiene tres enteros $T, A$ y $B$, donde $T$ indica el tipo de condición y $A$ y $B$ representan a los jugadores involucrados.
 
 # Salida
 
-Si existe al menos una convocatoria que satisfaga todas las condiciones, imprime `SI`. En caso contrario, imprime `NO`.
+Imprime `SI` si existe al menos una convocatoria que satisfaga todas las condiciones. En caso contrario, imprime `NO`.
 
 # Ejemplos
 
@@ -49,13 +45,9 @@ SI
 
 ||description
 
-Una convocatoria posible es:
+Una posible convocatoria incluye a los jugadores $1$ y $2$, mientras que el jugador $3$ queda fuera de la lista.
 
-- jugador 1 convocado;
-- jugador 2 convocado;
-- jugador 3 no convocado.
-
-Todas las restricciones se satisfacen.
+El jugador $1$ cumple con la condición de estar acompañado por el $2$, los jugadores $2$ y $3$ no coinciden en la convocatoria y, además, entre los jugadores $1$ y $3$ hay al menos uno convocado. Por lo tanto, todas las condiciones se satisfacen.
 
 ||input
 
@@ -71,7 +63,7 @@ NO
 
 ||description
 
-Las dos primeras restricciones obligan a que $1$ y $2$ tengan el mismo estado (si $1$ entonces $2$, y si $2$ entonces $1$). La tercera exige que al menos uno esté convocado, por lo que ambos deberían estar convocados; la cuarta prohíbe que ambos estén convocados. No existe asignación que satisfaga todas las condiciones.
+Las dos primeras condiciones hacen que los jugadores $1$ y $2$ siempre deban compartir el mismo destino: ambos son convocados o ambos quedan fuera. Sin embargo, otra condición obliga a que al menos uno aparezca en la lista, mientras que la última prohíbe que coincidan en la convocatoria. No existe ninguna forma de satisfacer todas las condiciones simultáneamente.
 
 ||end
 
@@ -81,7 +73,7 @@ Las dos primeras restricciones obligan a que $1$ y $2$ tengan el mismo estado (s
 - $1 \le M \le 4 \times 10^5$
 - $1 \le T \le 3$
 - $1 \le A, B \le N$
-- $A$ es distinta de $B$
+- $A \neq B$
 
 # Subtareas
 

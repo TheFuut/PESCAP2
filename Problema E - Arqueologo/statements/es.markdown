@@ -1,42 +1,42 @@
 # Arqueólogo
 
-Miguel es un reconocido arqueólogo que ha descubierto una antigua civilización perdida. La región está formada por varias ciudades ancestrales conectadas mediante antiguos caminos de piedra.
+Hace siglos, una poderosa civilización desapareció sin dejar rastro. Tras años de investigación, el arqueólogo **Miguel** ha logrado localizar la región donde alguna vez floreció este antiguo imperio.
 
-Cada ciudad contiene reliquias e información histórica con un determinado **valor arqueológico**. Sin embargo, la expedición cuenta con un presupuesto muy limitado, por lo que Miguel solo puede realizar un número reducido de desplazamientos antes de verse obligado a finalizar la exploración.
+La expedición ha revelado una red de ciudades ancestrales conectadas por antiguos caminos de piedra. En cada ciudad pueden encontrarse reliquias, inscripciones y vestigios cuyo estudio aporta una valiosa cantidad de conocimiento sobre la civilización perdida.
 
-Miguel comienza en la ciudad principal de la civilización, desde donde parten todos los caminos. Durante su recorrido puede atravesar una misma ciudad varias veces, pero el valor arqueológico de una ciudad solo puede recuperarse la primera vez que la visita.
+Sin embargo, explorar la región es costoso. Cada desplazamiento consume parte del limitado presupuesto de la expedición, por lo que Miguel deberá decidir cuidadosamente qué rutas recorrer. Aunque puede atravesar una misma ciudad varias veces, una ciudad solo puede ser estudiada la primera vez que es visitada; regresar a ella no proporciona nueva información.
 
-Como jefe de la expedición, tu tarea es planificar el recorrido para obtener la mayor cantidad posible de información antes de agotar el presupuesto.
+Como responsable de planificar la expedición, debes decidir el recorrido de Miguel para obtener la mayor cantidad posible de conocimiento antes de agotar el presupuesto.
 
 # Descripción
 
-La región está formada por $N$ ciudades conectadas mediante $N−1$ caminos bidireccionales, formando un árbol.
+La región está formada por $N$ ciudades conectadas mediante $N − 1$ caminos bidireccionales. Se garantiza que es posible viajar entre cualquier par de ciudades y que las conexiones forman un árbol.
 
-Las ciudades están numeradas del $1$ al $N$, y Miguel inicia su expedición en la ciudad $1$.
+Las ciudades están numeradas del $1$ al $N$, y Miguel inicia su expedición en la ciudad $1$, donde se encuentra el campamento base.
 
-Cada ciudad $i$ posee un valor arqueológico $a_i$.
+Cada ciudad $i$ posee un conocimiento arqueológico $a_i$, que representa la cantidad de conocimiento que puede obtenerse al estudiarla.
 
-Cada vez que Miguel recorre un camino consume exactamente **1 desplazamiento** de su presupuesto.
+Cada vez que Miguel recorre un camino consume exactamente **un desplazamiento** de su presupuesto. En total dispone de $L$ **desplazamientos**.
 
-Miguel dispone de un presupuesto de **L desplazamientos**.
+Ten en cuenta que:
 
-- Puede visitar una ciudad varias veces.
-- El valor arqueológico de una ciudad solo se obtiene la primera vez que Miguel entra en ella.
-- Miguel no está obligado a regresar a la ciudad inicial; puede terminar su expedición en cualquier ciudad.
+- Miguel puede pasar por una ciudad cualquier número de veces.
+- El conocimiento arqueológico de una ciudad solo se obtiene la primera vez que esta es visitada.
+- La expedición puede finalizar en cualquier ciudad; **no es necesario regresar al campamento base**.
 
-Determina la máxima suma de valor arqueológico que Miguel puede obtener.
+Determina la máxima cantidad de conocimiento arqueológico que Miguel puede obtener respetando el límite de desplazamientos.
 
 # Entrada
 
-La primera línea contiene dos enteros $N$ y $L$, donde $N$ es el número de ciudades y $L$ es la cantidad máxima de desplazamientos que Miguel puede realizar.
+La primera línea contiene dos enteros $N$ y $L$, donde $N$ es el número de ciudades y $L$ es el número máximo de desplazamientos que Miguel puede realizar.
 
-La segunda línea contiene $N$ enteros $a_i, a_2, \dots, a_N$, donde $a_i$ representa el valor arqueológico de la ciudad $i$.
+La segunda línea contiene $N$ enteros $a_i, a_2, \dots, a_N$, donde $a_i$ representa el conocimiento arqueológico de la ciudad $i$.
 
 Las siguientes $N - 1$ líneas contienen dos enteros $u$ y $v$, indicando que existe un camino bidireccional entre las ciudades $u$ y $v$.
 
 # Salida
 
-Imprime un único entero: la máxima suma de valor arqueológico que Miguel puede obtener utilizando a lo sumo $L$ desplazamientos.
+Imprime un único entero: la máxima suma de valores arqueológicos que Miguel puede obtener utilizando a lo sumo $L$ desplazamientos.
 
 # Ejemplos
 
@@ -55,18 +55,15 @@ Imprime un único entero: la máxima suma de valor arqueológico que Miguel pued
 
 ||description
 
-Una estrategia óptima es:
+Una estrategia óptima consiste en recorrer
 
 $1 → 2 → 4$
 
-Los desplazamientos utilizados son:
+Se utilizan únicamente $2$ desplazamientos, obteniendo por primera vez el conocimiento arqueológico de las ciudades $1, 2$ y $4$.
 
-- $1 → 2$
-- $2 → 4$
+La suma obtenida es $5 + 7 + 10 = 22$.
 
-En total se utilizan **2 desplazamientos**.
-
-Las ciudades visitadas por primera vez son $1, 2$ y $4$ obteniendo $5 + 7 + 10 = 22$. Aunque aún queda un desplazamiento disponible, ninguna otra ciudad puede visitarse sin exceder el presupuesto.
+Aunque aún queda un desplazamiento disponible, no es posible visitar una nueva ciudad sin superar el presupuesto.
 
 ||input
 
@@ -89,11 +86,11 @@ Una ruta óptima es:
 
 $1 → 2 → 5 → 2 → 1 → 3 → 7$
 
-Miguel utiliza exactamente **6 desplazamientos**.
+Miguel utiliza exactamente los $6$ desplazamientos disponibles.
 
-Las ciudades visitadas por primera vez son: $1, 2, 5, 3$ y $7$, por lo que obtiene $4 + 5 + 12 + 8 + 10 = 39$.
+Las ciudades estudiadas por primera vez son $1, 2, 5, 3$ y $7$, por lo que se obtiene $4 + 5 + 12 + 8 + 10 = 39$.
 
-No existe otra ruta que, respetando el límite de desplazamientos, consiga un valor arqueológico mayor.
+No existe otro recorrido que, respetando el límite de desplazamientos, permita obtener un conocimiento arqueológico mayor.
 
 ||end
 

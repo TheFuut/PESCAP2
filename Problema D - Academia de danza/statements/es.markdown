@@ -1,18 +1,22 @@
 # Academia de danza
 
-Sasha y Judith han abierto una academia de danza inspirada en las tradiciones de México. En cada audición llegan bailarines con mucha energía, pero la presentación final exige una secuencia muy precisa para que el número se vea elegante. No basta con que los bailarines sean buenos por separado. También importa cómo se acomodan dentro de la coreografía.
+Sasha y Judith han abierto una academia dedicada a preservar las danzas tradicionales de México. Después de varias semanas de ensayos, llegó el momento de elegir a los bailarines que participarán en la presentación principal del festival.
 
-Cada bailarín tiene dos cualidades. La primera representa su dominio técnico y la segunda representa su coordinación con el grupo. Para que dos bailarines puedan estar uno después del otro en la presentación, ambos valores deben crecer de manera estricta. Judith insiste en que la secuencia debe verse natural, como si cada paso fuera superando al anterior sin romper la armonía del espectáculo.
+Cada bailarín posee dos cualidades. La primera mide su dominio técnico de los pasos y la segunda representa qué tan bien logra sincronizarse con el resto del grupo. Judith quiere que la coreografía transmita una sensación de progreso constante, por lo que cada bailarín que aparezca después de otro debe superar al anterior en ambas cualidades. Si alguno de los dos valores deja de aumentar, la armonía de la presentación se rompe.
 
 # Descripción
 
-Te dan $N$ bailarines, y cada uno tiene dos enteros $a_i$ y $b_i$. Debes elegir el mayor número posible de bailarines para formar una secuencia válida. Una secuencia es válida si, al ordenar a los bailarines elegidos en el orden de la presentación, sus valores $a$ y $b$ aumentan estrictamente de izquierda a derecha.
+Se tienen $N$ bailarines. El bailarín $i$ está descrito por dos enteros $a_i$ y $b_i$, que representan su dominio técnico y su coordinación, respectivamente.
 
-Sasha y Judith pueden elegir a los bailarines que quieran, pero una vez elegidos, deben acomodarlos para que la presentación sea válida.
+Puedes elegir cualquier subconjunto de bailarines y acomodarlos en el orden que desees para la presentación.
+
+Una secuencia es **válida** si, para cada par de bailarines consecutivos en la presentación, tanto el dominio técnico como la coordinación aumentan de manera estricta.
+
+Determina el mayor número de bailarines que pueden formar una secuencia válida.
 
 # Entrada
 
-La primera línea contiene un entero $N$, que indica el número de bailarines que llegaron a la academia.
+La primera línea contiene un entero $N$, el número de bailarines que participaron en la audición.
 
 Cada una de las siguientes $N$ líneas contiene dos enteros $a_i$ y $b_i$, donde $a_i$ representa el dominio técnico del bailarín y $b_i$ representa su coordinación con el grupo.
 
@@ -37,9 +41,13 @@ Imprime un solo entero, el máximo número de bailarines que pueden formar una s
 
 ||description
 
-Se ordenan los bailarines por $a$ ascendente y, en empates, por $b$ descendente. La lista queda con $(2, 3)$, $(2, 2)$, $(3, 4)$, $(4, 1)$ y $(5, 5)$.
+Aunque existen dos bailarines con el mismo dominio técnico $(a = 2)$, ambos no pueden aparecer en la misma secuencia porque el dominio debe aumentar estrictamente entre bailarines consecutivos.
 
-La subsecuencia estrictamente creciente más larga sobre $b$ es $(2, 2)$, $(3, 4)$ y $(5, 5)$, por lo que la respuesta es $3$.
+La mejor presentación posible utiliza tres bailarines, por ejemplo
+
+$$(2, 2) → (3, 4) → (5, 5),$$
+
+donde ambas cualidades aumentan en cada transición. No existe ninguna secuencia válida con cuatro bailarines.
 
 ||input
 
@@ -57,9 +65,13 @@ La subsecuencia estrictamente creciente más larga sobre $b$ es $(2, 2)$, $(3, 4
 
 ||description
 
-La mejor idea vuelve a ser ordenar por $a$ ascendente y, en empates, por $b$ descendente. Después se calcula la subsecuencia estrictamente creciente más larga sobre $b$.
+Los bailarines con dominio técnico igual a 2 no pueden participar simultáneamente en la misma secuencia válida. Para obtener la presentación más larga es necesario elegir únicamente uno de ellos.
 
-Una secuencia máxima válida es $(1,1)$, $(2,3)$, $(3,4)$, $(4,6)$, $(5,7)$, así que la respuesta es $5$.
+Una secuencia óptima está formada por
+
+$$(1, 1) → (2, 3) → (3, 4) → (4,6) → (5, 7),$$
+
+por lo que la respuesta es $5$.
 
 ||end
 
@@ -67,7 +79,7 @@ Una secuencia máxima válida es $(1,1)$, $(2,3)$, $(3,4)$, $(4,6)$, $(5,7)$, as
 
 - $1 \le N \le 2 × 10^5$
 - $1 \le a_i, b_i \le 10^9$
-- Puede haber bailarines con valores repetidos
+- Los valores de $a_i$ y $b_i$ pueden repetirse.
 
 # Subtareas
 
