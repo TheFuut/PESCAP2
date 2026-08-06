@@ -86,6 +86,6 @@ Las dos primeras restricciones obligan a que $1$ y $2$ tengan el mismo estado (s
 # Subtareas
 
 - Subtarea 1 (10 puntos): $N \le 20$
-- Subtarea 2 (20 puntos): Sólo hay restricciones de tipo 2
+- Subtarea 2 (20 puntos): Sólo hay restricciones de tipo $2$.
 - Subtarea 3 (20 puntos): $N, M \le 5000$
 - Subtarea 4 (50 puntos): Sin restricciones adicionales.

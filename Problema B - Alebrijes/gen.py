@@ -1,291 +1,404 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-gen.py - Generador de archivos .in para la versión actualizada del problema "Alebrijes"
-
-Esta versión adapta el generador a la nueva especificación:
-- Ahora cada archivo de entrada contiene t casos de prueba.
-- Formato de cada archivo:
-    t
-    N K
-    a1 a2 ... aN
-    (repetir para cada caso)
-- Restricciones globales por archivo: la suma de todos los N en el archivo no excede 5000.
-- Subtareas con límites adicionales en N por caso:
-    Subtarea 1: N <= 300
-    Subtarea 2: N <= 3000
-    Subtarea 3: N <= 5000
-- El script crea la carpeta `cases/` si no existe y sobrescribe archivos existentes.
-- Usa una semilla fija para reproducibilidad.
-- Genera casos variados y útiles (límites, patrones, aleatorios, casos engañosos, etc.)
-- Organización en funciones: gen_subtask_1/2/3 y auxiliares.
-
-Nombres de archivos:
-    subtarea-{subtask}.{case}.in
-donde {subtask} ∈ {1,2,3} y {case} comienza en 1 para cada subtarea.
-
-NOTA: Este generador **solo** crea archivos .in. No genera .out.
-"""
+# Generador de casos de prueba para el problema "Alebrijes"
+# - Crea carpeta cases/
+# - Genera archivos con nombres exactos: subtarea-{subtask}.{case}.in
+# - Determinista (semilla fija)
+# - Incluye variedad de casos y mezcla SI/NO
+# - Respeta límites y suma total de N <= 1e6
 
 import os
 import random
+from pathlib import Path
 from typing import List, Tuple
 
-# ---------------------------
-# Configuración global
-# ---------------------------
-OUT_DIR = "cases"
-SEED = 12345
+SEED = 123456789
 random.seed(SEED)
 
-# Cantidad de archivos por subtarea (manteniendo la organización previa)
-FILES_PER_SUBTASK = {1: 20, 2: 15, 3: 25}
+OUT_DIR = Path("cases")
+OUT_DIR.mkdir(exist_ok=True)
 
-# Límites por subtarea (actualizados según la nueva declaración)
-SUBTASK_LIMITS = {
-    1: {"N_min": 1, "N_max": 300, "a_min": 1, "a_max": 10**9, "K_min": 1, "K_max": 10**9},
-    2: {"N_min": 1, "N_max": 3000, "a_min": 1, "a_max": 10**9, "K_min": 1, "K_max": 10**9},
-    3: {"N_min": 1, "N_max": 5000, "a_min": 1, "a_max": 10**9, "K_min": 1, "K_max": 10**9},
+# Límites globales
+MAX_TOTAL_N = 10**6
+GLOBAL_N_MIN = 2
+GLOBAL_N_MAX = 10**6
+A_MIN = 1
+A_MAX = 10**9
+K_MIN = 1
+K_MAX = 10**9
+
+# Número de archivos por subtarea (según enunciado)
+CASES_PER_SUBTASK = {
+    1: 10,
+    2: 15,
+    3: 25,
+    4: 25,
 }
 
-# Restricción global por archivo: suma de N en el archivo <= 5000
-SUM_N_LIMIT_PER_FILE = 5000
+# Mantener suma total de N para no exceder MAX_TOTAL_N
+remaining_N_budget = MAX_TOTAL_N
 
-# ---------------------------
-# Utilidades
-# ---------------------------
+# Helpers para construir instancias con respuesta conocida por construcción.
+def make_yes_by_end(N: int, K: int, place_left: bool = True, pattern: str = "random") -> List[int]:
+    """
+    Construye un arreglo que garantiza respuesta SI:
+    - Si place_left True, a[0] >= K (entonces siempre se puede empezar por la izquierda y propagar).
+    - Si place_left False, a[-1] >= K.
+    pattern controla la distribución del resto.
+    """
+    arr = [None] * N
+    big = max(K, K + 1)  # >= K
+    if place_left:
+        arr[0] = big
+    else:
+        arr[-1] = big
 
-def ensure_out_dir():
-    os.makedirs(OUT_DIR, exist_ok=True)
+    def fill_random(low, high):
+        return [random.randint(low, high) for _ in range(N)]
 
-def clamp(val: int, lo: int, hi: int) -> int:
-    return max(lo, min(hi, val))
+    if pattern == "all_ge_k":
+        # todos >= K
+        arr = [big] * N
+    elif pattern == "equal":
+        val = random.randint(1, max(1, K))
+        arr = [val] * N
+        if place_left:
+            arr[0] = big
+        else:
+            arr[-1] = big
+    elif pattern == "increasing":
+        base = random.randint(1, max(1, K//2))
+        seq = [base + i for i in range(N)]
+        if place_left:
+            seq[0] = big
+        else:
+            seq[-1] = big
+        arr = seq
+    elif pattern == "decreasing":
+        base = random.randint(1, max(1, K//2))
+        seq = [base + (N - i) for i in range(N)]
+        if place_left:
+            seq[0] = big
+        else:
+            seq[-1] = big
+        arr = seq
+    elif pattern == "alternating":
+        small = max(1, K//10)
+        large = max(K, K//2 + 1)
+        seq = [large if i % 2 == 0 else small for i in range(N)]
+        if place_left:
+            seq[0] = big
+        else:
+            seq[-1] = big
+        arr = seq
+    else:
+        # random small values but ensure the chosen end is big
+        low = 1
+        high = max(1, K - 1)
+        for i in range(N):
+            if arr[i] is None:
+                arr[i] = random.randint(low, high)
+    return arr
 
-def validate_case_limits(subtask: int, N: int, K: int, arr: List[int]) -> None:
-    """Valida que un caso cumple las restricciones de la subtarea."""
-    limits = SUBTASK_LIMITS[subtask]
-    if not (limits["N_min"] <= N <= limits["N_max"]):
-        raise ValueError(f"N fuera de rango para subtarea {subtask}: {N}")
-    if not (limits["K_min"] <= K <= limits["K_max"]):
-        raise ValueError(f"K fuera de rango para subtarea {subtask}: {K}")
-    if len(arr) != N:
-        raise ValueError(f"Longitud de arreglo incorrecta: esperado {N}, obtenido {len(arr)}")
-    for x in arr:
-        if not (limits["a_min"] <= x <= limits["a_max"]):
-            raise ValueError(f"Valor ai fuera de rango para subtarea {subtask}: {x}")
+def make_no_by_ends_blocked(N: int, K: int, pattern: str = "random") -> List[int]:
+    """
+    Construye un arreglo que garantiza respuesta NO por construcción:
+    - Ambos extremos no pueden sumarse con ninguna otra pieza para alcanzar K.
+      Es decir, for all j != 0, a0 + a_j < K and for all j != N-1, aN-1 + a_j < K.
+    - Para lograrlo, fijamos extremos muy pequeños y el resto también lo suficientemente pequeño.
+    """
+    # Elegimos extremos small_e y interior small_i tal que small_e + max_interior < K
+    # Para seguridad, ponemos max_interior = K-2 and small_e = 1 so sum = K-1 < K
+    if K <= 2:
+        # Si K muy pequeño, es difícil bloquear; en ese caso hacemos NO con N=2 y suma<K
+        if N == 2:
+            a0 = 1
+            a1 = max(1, K - 1)  # sum < K
+            return [a0, a1]
+        # si K<=2 y N>2, hacemos interiores zeros (1) and K large? but K small; fallback:
+        # make interior all 1 and ends 1 but set K=3 artificially? Instead, set K to 3 by caller.
+        pass
 
-def write_input_file(subtask: int, file_no: int, cases: List[Tuple[int,int,List[int]]]) -> None:
-    """Escribe un archivo .in con varios casos. Sobrescribe si existe."""
-    # Validar suma de N
-    totalN = sum(N for (N, K, arr) in cases)
-    if totalN > SUM_N_LIMIT_PER_FILE:
-        raise ValueError(f"Suma de N en archivo excede {SUM_N_LIMIT_PER_FILE}: {totalN}")
-    # Validar cada caso
-    for (N, K, arr) in cases:
-        validate_case_limits(subtask, N, K, arr)
-    filename = os.path.join(OUT_DIR, f"subtarea-{subtask}.{file_no}.in")
+    small_end = 1
+    interior_max = max(1, K - 2)  # ensure small_end + interior_max = K-1 < K
+    arr = [None] * N
+    arr[0] = small_end
+    arr[-1] = small_end
+
+    if pattern == "all_small":
+        arr = [1] * N
+        arr[0] = small_end
+        arr[-1] = small_end
+    elif pattern == "many_small_one_big":
+        # Put one big in interior but still ensure big + small_end < K
+        big = interior_max
+        for i in range(1, N-1):
+            arr[i] = big
+    elif pattern == "increasing":
+        # increasing but capped so ends can't pair
+        seq = [1 + i % (interior_max) for i in range(N)]
+        seq[0] = small_end
+        seq[-1] = small_end
+        arr = seq
+    else:
+        # random small values <= interior_max
+        for i in range(1, N-1):
+            arr[i] = random.randint(1, interior_max)
+    return arr
+
+def make_edge_case_two(N: int, K: int, want_yes: bool) -> List[int]:
+    # N==2 special
+    if want_yes:
+        # ensure a1+a2 >= K
+        a1 = random.randint(1, K)
+        a2 = max(1, K - a1)
+        # maybe increase to ensure >=K
+        if a1 + a2 < K:
+            a2 = K - a1
+        return [a1, a2]
+    else:
+        # ensure a1+a2 < K
+        a1 = 1
+        a2 = max(1, K - 1)
+        if a1 + a2 >= K:
+            a2 = max(1, K - 1)
+            if a1 + a2 >= K:
+                a1 = 1
+                a2 = 1
+        return [a1, a2]
+
+# Función para escribir un archivo .in con T casos
+def write_case_file(filename: Path, tests: List[Tuple[int,int,List[int]]]):
+    """
+    tests: lista de (N, K, arr)
+    """
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(str(len(cases)) + "\n")
-        for (N, K, arr) in cases:
+        f.write(str(len(tests)) + "\n")
+        for N, K, arr in tests:
             f.write(f"{N} {K}\n")
             f.write(" ".join(str(x) for x in arr) + "\n")
 
-# ---------------------------
-# Generadores de casos individuales (patrones)
-# ---------------------------
-
-def seq_increasing(N: int, a_min: int, a_max: int) -> List[int]:
-    if N == 1:
-        return [random.randint(a_min, a_max)]
-    span = max(1, a_max - a_min + 1)
-    if span >= N:
-        vals = sorted(random.sample(range(a_min, a_max + 1), k=N))
-        return vals
-    return [a_min + i for i in range(N)]
-
-def seq_decreasing(N: int, a_min: int, a_max: int) -> List[int]:
-    s = seq_increasing(N, a_min, a_max)
-    s.reverse()
-    return s
-
-def seq_all_equal(N: int, value: int) -> List[int]:
-    return [value] * N
-
-def seq_many_repeats(N: int, distinct: int, a_min: int, a_max: int) -> List[int]:
-    distinct = max(1, min(distinct, N))
-    pool = [random.randint(a_min, a_max) for _ in range(distinct)]
-    arr = [random.choice(pool) for _ in range(N)]
-    random.shuffle(arr)
-    return arr
-
-def seq_random(N: int, a_min: int, a_max: int) -> List[int]:
-    return [random.randint(a_min, a_max) for _ in range(N)]
-
-def seq_min_values(N: int, a_min: int) -> List[int]:
-    return [a_min] * N
-
-def seq_max_values(N: int, a_max: int) -> List[int]:
-    return [a_max] * N
-
-def seq_near_sum_max(N: int, a_min: int, a_max: int) -> List[int]:
-    if N <= 3:
-        return seq_random(N, a_min, a_max)
-    big1 = a_max
-    big2 = max(a_min, a_max // 2)
-    rest = [random.randint(a_min, max(a_min, a_max // 10)) for _ in range(N - 2)]
-    arr = [big1, big2] + rest
-    random.shuffle(arr)
-    return arr
-
-def seq_tricky_for_greedy(N: int, a_min: int, a_max: int) -> List[int]:
-    if N == 1:
-        return [random.randint(a_min, a_max)]
-    large1 = max(a_min, a_max // 2)
-    large2 = large1 + random.randint(0, max(1, a_max // 10))
-    smalls = [random.randint(a_min, max(a_min, a_max // 20)) for _ in range(max(0, N - 2))]
-    arr = [large1, large2] + smalls
-    random.shuffle(arr)
-    return arr
-
-# ---------------------------
-# Construcción de conjuntos de casos por archivo
-# ---------------------------
-
-def build_cases_for_file(subtask: int, target_totalN: int) -> List[Tuple[int,int,List[int]]]:
+# Generadores por subtarea
+def gen_subtask_1(case_id: int) -> Tuple[Path, int]:
     """
-    Construye una lista de casos cuyo total de N sea <= target_totalN (y preferiblemente cercano).
-    Se mezclan patrones para lograr variedad.
+    Subtarea 1: T = 1, N <= 10. Generar 10 archivos.
     """
-    limits = SUBTASK_LIMITS[subtask]
-    remaining = target_totalN
-    cases = []
+    global remaining_N_budget
+    T = 1
+    # N pequeño
+    N = random.randint(2, 10)
+    if remaining_N_budget - N < 0:
+        N = 2
+    remaining_N_budget -= N
 
-    # Queremos entre 3 y 30 casos por archivo, dependiendo del tamaño permitido
-    max_cases = min(30, max(1, target_totalN // 10))
-    num_cases = random.randint(3, max_cases) if target_totalN >= 10 else 1
-
-    # Distribuir tamaños: generar tamaños aleatorios pero respetando límites y la suma
-    for i in range(num_cases):
-        # Si queda poco espacio, crear un pequeño caso
-        max_allowed_N = min(limits["N_max"], remaining - (num_cases - i - 1) * limits["N_min"])
-        if max_allowed_N < limits["N_min"]:
-            break
-        # Elegir N: preferir variedad (a veces grande, a veces pequeño)
-        if remaining > limits["N_max"] and random.random() < 0.2:
-            N = random.randint(max(1, limits["N_max"] // 2), limits["N_max"])
+    # Alternar SI/NO por case_id
+    want_yes = (case_id % 2 == 1)
+    K = random.randint(1, 50)
+    if N == 2:
+        arr = make_edge_case_two(N, K, want_yes)
+    else:
+        if want_yes:
+            # choose patterns
+            pattern = random.choice(["random", "equal", "alternating", "increasing"])
+            place_left = random.choice([True, False])
+            arr = make_yes_by_end(N, K, place_left=place_left, pattern=pattern)
         else:
-            # elegir N entre 1 y max_allowed_N, pero no demasiado pequeño siempre
-            N = random.randint(limits["N_min"], max(1, min(max_allowed_N, max(5, max_allowed_N // 4))))
-        N = clamp(N, limits["N_min"], max_allowed_N)
-        # Elegir patrón aleatoriamente
-        pattern = random.random()
-        if pattern < 0.08:
-            arr = seq_min_values(N, limits["a_min"])
-        elif pattern < 0.16:
-            arr = seq_max_values(N, limits["a_max"])
-        elif pattern < 0.28:
-            val = random.randint(limits["a_min"], min(limits["a_max"], 1000))
-            arr = seq_all_equal(N, val)
-        elif pattern < 0.40:
-            arr = seq_increasing(N, limits["a_min"], min(limits["a_max"], 100000))
-        elif pattern < 0.52:
-            arr = seq_decreasing(N, limits["a_min"], min(limits["a_max"], 100000))
-        elif pattern < 0.66:
-            arr = seq_many_repeats(N, distinct=max(1, N//10), a_min=limits["a_min"], a_max=min(limits["a_max"], 10000))
-        elif pattern < 0.80:
-            arr = seq_tricky_for_greedy(N, limits["a_min"], min(limits["a_max"], 10**7))
-        else:
-            arr = seq_random(N, limits["a_min"], min(limits["a_max"], 10**7))
+            pattern = random.choice(["random", "all_small", "increasing"])
+            arr = make_no_by_ends_blocked(N, K, pattern=pattern)
+    filename = OUT_DIR / f"subtarea-1.{case_id}.in"
+    write_case_file(filename, [(N, K, arr)])
+    return filename, N
 
-        # Elegir K con varios criterios para cubrir casos interesantes
-        # Algunas opciones: K=1, K small, K equal to an element, K equal to sum of two elements,
-        # K slightly above some element, K near total sum, K impossible (greater than sum of two largest)
-        choice = random.random()
-        if choice < 0.08:
-            K = 1
-        elif choice < 0.18:
-            K = random.randint(1, max(1, min(100, max(arr))))
-        elif choice < 0.30:
-            K = random.choice(arr)
-        elif choice < 0.44 and N >= 2:
-            s = sorted(arr, reverse=True)
-            K = s[0] + s[1]
-        elif choice < 0.58:
-            total = sum(arr)
-            K = random.randint(1, max(1, min(total, limits["K_max"])))
-        elif choice < 0.72:
-            # K slightly above sum of two largest to create NO cases
-            s = sorted(arr, reverse=True)
-            if N >= 2:
-                K = min(limits["K_max"], s[0] + s[1] + random.randint(1, max(1, s[0]//2)))
+def gen_subtask_2(case_id: int) -> Tuple[Path, int]:
+    """
+    Subtarea 2: N <= 100. Generate varied T and cases.
+    """
+    global remaining_N_budget
+    # Choose T variations: sometimes max (we'll use 15), sometimes small
+    T_options = [1, 3, 5, 10, 15]
+    T = random.choice(T_options)
+    tests = []
+    totalN = 0
+    for t in range(T):
+        N = random.randint(2, 100)
+        if remaining_N_budget - N < 0:
+            N = 2
+        remaining_N_budget -= N
+        totalN += N
+        want_yes = random.choice([True, False])
+        K = random.randint(1, 200)
+        if N == 2:
+            arr = make_edge_case_two(N, K, want_yes)
+        else:
+            if want_yes:
+                pattern = random.choice(["random", "equal", "alternating", "increasing", "decreasing"])
+                place_left = random.choice([True, False])
+                arr = make_yes_by_end(N, K, place_left=place_left, pattern=pattern)
             else:
-                K = min(limits["K_max"], arr[0] + random.randint(0, 10))
+                pattern = random.choice(["random", "all_small", "many_small_one_big"])
+                arr = make_no_by_ends_blocked(N, K, pattern=pattern)
+        tests.append((N, K, arr))
+    filename = OUT_DIR / f"subtarea-2.{case_id}.in"
+    write_case_file(filename, tests)
+    return filename, totalN
+
+def gen_subtask_3(case_id: int) -> Tuple[Path, int]:
+    """
+    Subtarea 3: a_i, K <= 100. N up to maybe 1000 but keep reasonable.
+    """
+    global remaining_N_budget
+    T = random.choice([1, 5, 10, 20, 50])
+    tests = []
+    totalN = 0
+    for t in range(T):
+        N = random.randint(2, 500)
+        if remaining_N_budget - N < 0:
+            N = 2
+        remaining_N_budget -= N
+        totalN += N
+        want_yes = random.choice([True, False])
+        K = random.randint(1, 100)
+        if N == 2:
+            arr = make_edge_case_two(N, K, want_yes)
         else:
-            # K near maximum possible (but clamped)
-            total = sum(arr)
-            K = min(limits["K_max"], max(1, total - random.randint(0, max(0, total//10))))
-        K = clamp(K, limits["K_min"], limits["K_max"])
+            if want_yes:
+                pattern = random.choice(["all_ge_k", "equal", "alternating", "increasing"])
+                place_left = random.choice([True, False])
+                arr = make_yes_by_end(N, K, place_left=place_left, pattern=pattern)
+            else:
+                pattern = random.choice(["all_small", "many_small_one_big", "random"])
+                arr = make_no_by_ends_blocked(N, K, pattern=pattern)
+        # cap values to <=100
+        arr = [min(100, max(1, x)) for x in arr]
+        tests.append((N, K, arr))
+    filename = OUT_DIR / f"subtarea-3.{case_id}.in"
+    write_case_file(filename, tests)
+    return filename, totalN
 
-        cases.append((N, K, arr))
-        remaining -= N
-        if remaining < limits["N_min"]:
-            break
+def gen_subtask_4(case_id: int) -> Tuple[Path, int]:
+    """
+    Subtarea 4: Sin restricciones adicionales. Incluir casos grandes.
+    """
+    global remaining_N_budget
+    # We want some files with large N, some with small.
+    # Decide N based on remaining budget and randomness
+    # Ensure at least 2
+    max_allowed = min(200000, remaining_N_budget - (CASES_PER_SUBTASK[4] - case_id) * 2)
+    if max_allowed < 2:
+        max_allowed = 2
+    # For variety, sometimes pick very large, sometimes moderate
+    choice = random.random()
+    if choice < 0.08 and max_allowed >= 200000:
+        N = 200000
+    elif choice < 0.25 and max_allowed >= 100000:
+        N = random.randint(50000, min(100000, max_allowed))
+    else:
+        N = random.randint(2, min(50000, max_allowed))
+    if remaining_N_budget - N < 0:
+        N = 2
+    remaining_N_budget -= N
 
-    # If we have remaining capacity, optionally add one more small random case
-    if remaining >= limits["N_min"]:
-        # add one small case to use leftover capacity
-        N = min(remaining, min(limits["N_max"], max(1, remaining)))
-        arr = seq_random(N, limits["a_min"], min(limits["a_max"], 10**6))
-        K = random.randint(1, min(sum(arr), limits["K_max"]))
-        cases.append((N, K, arr))
-    # Final safety: ensure totalN <= SUM_N_LIMIT_PER_FILE
-    totalN = sum(N for (N, K, arr) in cases)
-    if totalN > SUM_N_LIMIT_PER_FILE:
-        # Trim last cases until within limit
-        while cases and sum(N for (N, K, arr) in cases) > SUM_N_LIMIT_PER_FILE:
-            cases.pop()
-    return cases
-
-# ---------------------------
-# Generadores por subtarea (archivos)
-# ---------------------------
-
-def gen_subtask(subtask: int, files_count: int):
-    """Genera `files_count` archivos para la subtarea dada."""
-    limits = SUBTASK_LIMITS[subtask]
-    ensure_out_dir()
-    for file_no in range(1, files_count + 1):
-        # Decidir target total N para este archivo: entre 50 y SUM_N_LIMIT_PER_FILE
-        # pero respetando subtarea: if subtarea small, we can keep smaller totals
-        if subtask == 1:
-            target = random.randint(50, min(800, SUM_N_LIMIT_PER_FILE))
-        elif subtask == 2:
-            target = random.randint(200, min(2000, SUM_N_LIMIT_PER_FILE))
+    # Choose T: sometimes large T (but ensure total N budget)
+    T = random.choice([1, 2, 5, 10, 50])
+    tests = []
+    usedN = 0
+    for t in range(T):
+        # distribute N across T parts
+        if t == T - 1:
+            Ni = N - usedN
+            if Ni < 2:
+                Ni = 2
         else:
-            target = random.randint(500, SUM_N_LIMIT_PER_FILE)
-        # Build cases ensuring per-case N <= limits["N_max"] and total <= target
-        cases = build_cases_for_file(subtask, target)
-        # As a safety, if no cases were built (shouldn't happen), create a trivial one
-        if not cases:
-            N = limits["N_min"]
-            arr = seq_random(N, limits["a_min"], min(limits["a_max"], 1000))
-            K = random.randint(1, min(sum(arr), limits["K_max"]))
-            cases = [(N, K, arr)]
-        # Write file
-        write_input_file(subtask, file_no, cases)
-    print(f"Subtarea {subtask}: generados {files_count} archivos en '{OUT_DIR}/'.")
+            # allocate at least 2
+            max_part = max(2, (N - usedN) - 2*(T - t - 1))
+            Ni = random.randint(2, max_part)
+        usedN += Ni
 
-# ---------------------------
-# Main
-# ---------------------------
+        want_yes = random.choice([True, False])
+        # K choose relative to Ni to create interesting cases
+        # sometimes very large K to force NO, sometimes small to allow YES
+        K_choice = random.random()
+        if K_choice < 0.2:
+            K = random.randint(1, 10)
+        elif K_choice < 0.6:
+            K = random.randint(1, 10**6)
+        else:
+            K = random.randint(1, 10**9)
 
+        if Ni == 2:
+            arr = make_edge_case_two(Ni, K, want_yes)
+        else:
+            if want_yes:
+                pattern = random.choice(["random", "equal", "alternating", "increasing", "all_ge_k", "decreasing"])
+                place_left = random.choice([True, False])
+                arr = make_yes_by_end(Ni, K, place_left=place_left, pattern=pattern)
+            else:
+                pattern = random.choice(["random", "all_small", "many_small_one_big", "increasing"])
+                arr = make_no_by_ends_blocked(Ni, K, pattern=pattern)
+
+        # Add special crafted subcases
+        special = random.random()
+        if special < 0.05:
+            # single huge in middle, others small
+            big = min(10**9, max(K, 10**8))
+            mid = Ni // 2
+            for i in range(Ni):
+                arr[i] = 1
+            arr[mid] = big
+            # ensure want_yes depends on whether an end can pair with big
+            # but we keep construction as-is (may be YES or NO depending on K)
+        elif special < 0.1:
+            # many equal values
+            val = random.randint(1, min(10**9, max(1, K)))
+            arr = [val] * Ni
+        # ensure bounds
+        arr = [min(A_MAX, max(A_MIN, x)) for x in arr]
+        tests.append((Ni, K, arr))
+
+    filename = OUT_DIR / f"subtarea-4.{case_id}.in"
+    write_case_file(filename, tests)
+    return filename, N
+
+# Main generator
 def main():
-    ensure_out_dir()
-    print("Generando archivos .in con semilla fija:", SEED)
-    gen_subtask(1, FILES_PER_SUBTASK[1])
-    gen_subtask(2, FILES_PER_SUBTASK[2])
-    gen_subtask(3, FILES_PER_SUBTASK[3])
-    print("Generación completada. Revisa la carpeta 'cases/' para los archivos .in.")
+    print("Generador de casos para 'Alebrijes' - iniciando...")
+    generated = []
+    total_files = sum(CASES_PER_SUBTASK.values())
+    file_count = 0
+
+    # Subtask 1
+    for i in range(1, CASES_PER_SUBTASK[1] + 1):
+        filename, usedN = gen_subtask_1(i)
+        generated.append((filename, usedN))
+        file_count += 1
+        print(f"Generado: {filename} (N={usedN})")
+
+    # Subtask 2
+    for i in range(1, CASES_PER_SUBTASK[2] + 1):
+        filename, usedN = gen_subtask_2(i)
+        generated.append((filename, usedN))
+        file_count += 1
+        print(f"Generado: {filename} (sum N={usedN})")
+
+    # Subtask 3
+    for i in range(1, CASES_PER_SUBTASK[3] + 1):
+        filename, usedN = gen_subtask_3(i)
+        generated.append((filename, usedN))
+        file_count += 1
+        print(f"Generado: {filename} (sum N={usedN})")
+
+    # Subtask 4
+    for i in range(1, CASES_PER_SUBTASK[4] + 1):
+        filename, usedN = gen_subtask_4(i)
+        generated.append((filename, usedN))
+        file_count += 1
+        print(f"Generado: {filename} (N budget used={usedN})")
+
+    total_N_used = sum(n for _, n in generated)
+    print("\nResumen final:")
+    print(f"  Archivos generados: {len(generated)}")
+    print(f"  Suma total de N usada: {total_N_used} (límite {MAX_TOTAL_N})")
+    print(f"  Directorio de salida: {OUT_DIR.resolve()}")
+    print("Generación completada.")
 
 if __name__ == "__main__":
     main()

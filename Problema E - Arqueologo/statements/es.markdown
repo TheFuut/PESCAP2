@@ -77,7 +77,7 @@ Las ciudades visitadas por primera vez son $1, 2$ y $4$ obteniendo $5 + 7 + 10 =
 2 4
 2 5
 3 6
-6 7
+3 7
 
 ||output
 

@@ -14,7 +14,7 @@ Sasha y Judith pueden elegir a los bailarines que quieran, pero una vez elegidos
 
 La primera línea contiene un entero $N$, que indica el número de bailarines que llegaron a la academia.
 
-Cada una de las siguientes N líneas contiene dos enteros $a_i$ y $b_i$, donde $a_i$ representa el dominio técnico del bailarín y $b_i$ representa su coordinación con el grupo.
+Cada una de las siguientes $N$ líneas contiene dos enteros $a_i$ y $b_i$, donde $a_i$ representa el dominio técnico del bailarín y $b_i$ representa su coordinación con el grupo.
 
 # Salida
 
@@ -72,6 +72,6 @@ Una secuencia máxima válida es $(1,1)$, $(2,3)$, $(3,4)$, $(4,6)$, $(5,7)$, as
 # Subtareas
 
 - Subtarea 1 (20 puntos): $N \le 2000$
-- Subtarea 2 (20 puntos): $N \le 10000$
-- Subtarea 3 (25 puntos): $N \le 50000$ y todos los $a_i$ son distintos
+- Subtarea 2 (20 puntos): $N \le 10^4$
+- Subtarea 3 (25 puntos): $N \le 5 \times 10^4$ y todos los $a_i$ son distintos
 - Subtarea 4 (35 puntos): Sin restricciones adicionales.

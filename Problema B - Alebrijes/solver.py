@@ -1,214 +1,152 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-solver.py - Procesador de archivos .in en cases/ y generador de .out
-
-Este script recorre todos los archivos `cases/subtarea-*.in`, resuelve cada caso
-contenidos en ellos (formato con t casos por archivo) y escribe el archivo
-correspondiente `cases/subtarea-*.out` con una línea por caso: "SI" o "NO".
-
-Uso:
-    python3 solver.py
-
-Notas:
-- Implementa el algoritmo exacto por BFS multi‑fuente sobre intervalos [l,r].
-- Sobrescribe archivos .out existentes.
-- Maneja entradas malformadas de forma conservadora (escribe "NO" para el caso afectado).
+Solucionador basado en la lógica proporcionada (C++ -> Python).
+- Procesa todos los archivos "subtarea-{subtask}.{case}.in" dentro de la carpeta "cases".
+- Cada .in debe comenzar con un entero T (número de casos).
+- Para cada caso se lee N K y luego N enteros a_i.
+- Para cada caso se aplica la comprobación descrita:
+    mx = máximo entre (a[0] + a[i]) para i != 0 y (a[N-1] + a[i]) para i != N-1
+  Si mx >= K -> "SI", en caso contrario -> "NO".
+- Genera un archivo .out por cada .in en la carpeta ".out/" con el mismo prefijo:
+    subtarea-{subtask}.{case}.out
+- Cada .out contiene una línea por caso con "SI" o "NO".
+- No imprime nada por stdout.
 """
 
-import os
-import glob
-import sys
-from collections import deque
-from typing import List
+from pathlib import Path
+from typing import List, Tuple
 
-CASES_DIR = "cases"
-PATTERN = os.path.join(CASES_DIR, "subtarea-*.in")
+IN_DIR = Path("cases")
+OUT_DIR = Path("cases")
 
-# ---------------------------
-# Lógica de resolución por caso
-# ---------------------------
+YES = "SI"
+NO = "NO"
 
-def solve_case(N: int, K: int, a: List[int]) -> bool:
+
+def parse_filename(fn: str) -> Tuple[str, str]:
     """
-    Devuelve True si existe una forma de ensamblar todas las piezas (SI), False en caso contrario (NO).
-    Enfoque: BFS multi-fuente sobre intervalos [l,r] con suma S = sum(a[l..r]).
-    Transiciones permitidas:
-      - [l,r] -> [l-1,r] si l>0 y S + a[l-1] >= K
-      - [l,r] -> [l,r+1] si r+1<N y S + a[r+1] >= K
+    Espera nombres del formato: subtarea-{subtask}.{case}.in
+    Devuelve (subtask, case) si coincide, o (None, None) si no.
     """
-    if N == 0:
-        return False
-    if N == 1:
-        return True
+    base = Path(fn).name
+    if not base.startswith("subtarea-") or not base.endswith(".in"):
+        return None, None
+    core = base[len("subtarea-"):-len(".in")]  # "{subtask}.{case}"
+    if "." not in core:
+        return None, None
+    subtask, case = core.split(".", 1)
+    if not (subtask.isdigit() and case.isdigit()):
+        return None, None
+    return subtask, case
 
-    # Prefijos para sumar intervalos en O(1)
-    pref = [0] * (N + 1)
-    for i in range(N):
-        pref[i+1] = pref[i] + a[i]
 
-    # Poda rápida: si las dos piezas más grandes no alcanzan K, imposible (no hay segundo paso)
-    if N >= 2:
-        s = sorted(a)
-        if s[-1] + s[-2] < K:
-            return False
-
-    # visited como bytearray de tamaño N*N (index = l * N + r)
-    size = N * N
-    visited = bytearray(size)
-
-    def idx(l: int, r: int) -> int:
-        return l * N + r
-
-    q = deque()
-
-    # Inicializar con todos los intervalos unitarios [i,i]
-    for i in range(N):
-        p = idx(i, i)
-        visited[p] = 1
-        q.append((i, i))
-
-    target = idx(0, N - 1)
-
-    while q:
-        l, r = q.popleft()
-        if l == 0 and r == N - 1:
-            return True
-        S = pref[r+1] - pref[l]
-
-        # expandir a la izquierda
-        if l > 0 and S + a[l-1] >= K:
-            ni = idx(l-1, r)
-            if not visited[ni]:
-                visited[ni] = 1
-                if ni == target:
-                    return True
-                q.append((l-1, r))
-
-        # expandir a la derecha
-        if r + 1 < N and S + a[r+1] >= K:
-            ni = idx(l, r+1)
-            if not visited[ni]:
-                visited[ni] = 1
-                if ni == target:
-                    return True
-                q.append((l, r+1))
-
-    return False
-
-# ---------------------------
-# Procesamiento de archivos .in -> .out
-# ---------------------------
-
-def process_file(in_path: str) -> None:
-    """
-    Lee un archivo .in (con t casos), resuelve cada caso y escribe el .out correspondiente.
-    """
-    base, _ = os.path.splitext(in_path)
-    out_path = base + ".out"
-
-    # Leer tokens
+def read_int_tokens(path: Path) -> List[int]:
+    """Lee todo el archivo y devuelve la lista de tokens convertidos a int."""
+    raw = path.read_bytes().split()
     try:
-        with open(in_path, "r", encoding="utf-8") as f:
-            tokens = f.read().strip().split()
+        return [int(x) for x in raw]
     except Exception as e:
-        # Si no se puede leer el archivo, no crear .out y reportar
-        print(f"[ERROR] No se pudo leer {in_path}: {e}", file=sys.stderr)
-        return
+        raise ValueError(f"Archivo {path.name} contiene tokens no enteros: {e}")
 
+
+def process_file_tokens(tokens: List[int]) -> List[str]:
+    """
+    Interpreta tokens donde el primer entero es T y luego T instancias.
+    Para cada instancia aplica la lógica descrita y devuelve la lista de resultados.
+    """
     if not tokens:
-        # Archivo vacío -> crear .out vacío o con nada; aquí escribimos nada
-        with open(out_path, "w", encoding="utf-8") as fo:
-            fo.write("")  # archivo vacío
-        print(f"[WARN] {in_path} está vacío. Se creó {out_path} vacío.")
+        raise ValueError("Archivo vacío")
+    t = tokens[0]
+    if t < 0:
+        raise ValueError("T negativo")
+    results: List[str] = []
+    idx = 1
+    for _ in range(t):
+        if idx + 1 >= len(tokens):
+            raise ValueError("Faltan N y K para un caso")
+        n = tokens[idx]; k = tokens[idx + 1]; idx += 2
+        if n < 0:
+            raise ValueError("N negativo")
+        if idx + n > len(tokens):
+            raise ValueError("Faltan a_i para un caso")
+        a = tokens[idx: idx + n]; idx += n
+
+        # Aplicar la lógica traducida del C++ proporcionado
+        # Calcular mx inicializado a 0 (como en el C++ original)
+        mx = 0
+        if n >= 2:
+            # max over a[0] + a[i] for i = 1..N-1
+            base0 = a[0]
+            for i in range(1, n):
+                s = base0 + a[i]
+                if s > mx:
+                    mx = s
+            # max over a[N-1] + a[i] for i = 0..N-2
+            basel = a[-1]
+            for i in range(0, n - 1):
+                s = basel + a[i]
+                if s > mx:
+                    mx = s
+        else:
+            # n == 1: loops in C++ skip and mx remains 0
+            # replicate that behavior
+            mx = 0
+
+        results.append(YES if mx >= k else NO)
+
+    return results
+
+
+def write_out(path_in: Path, subtask: str, case: str, results: List[str]) -> Path:
+    """Escribe el archivo .out correspondiente en OUT_DIR y devuelve su Path."""
+    OUT_DIR.mkdir(exist_ok=True)
+    out_name = f"subtarea-{subtask}.{case}.out"
+    out_path = OUT_DIR / out_name
+    text = "\n".join(results) + ("\n" if results else "")
+    out_path.write_text(text, encoding="utf-8")
+    return out_path
+
+
+def write_err(path_in: Path, subtask: str, case: str, message: str) -> None:
+    """Escribe un archivo .err con información sobre el problema de lectura/parseo."""
+    OUT_DIR.mkdir(exist_ok=True)
+    err_name = f"subtarea-{subtask}.{case}.err"
+    err_path = OUT_DIR / err_name
+    lines = [f"IN: {path_in.name}", f"Error: {message}"]
+    err_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def process_all_cases() -> None:
+    """Procesa todos los archivos válidos en IN_DIR y genera .out (y .err si aplica)."""
+    if not IN_DIR.is_dir():
         return
 
-    it = iter(tokens)
-    out_lines = []
-
-    # Parse t
-    try:
-        t = int(next(it))
-    except StopIteration:
-        print(f"[ERROR] Formato inválido en {in_path}: falta t", file=sys.stderr)
-        return
-    except ValueError:
-        print(f"[ERROR] Formato inválido en {in_path}: t no es entero", file=sys.stderr)
-        return
-
-    for case_no in range(t):
-        # Leer N y K
+    files = sorted(IN_DIR.glob("subtarea-*.in"))
+    for f in files:
+        subtask, case = parse_filename(f.name)
+        if subtask is None:
+            # Ignorar archivos que no cumplan el patrón exacto
+            continue
         try:
-            N = int(next(it))
-            K = int(next(it))
-        except StopIteration:
-            # Malformado: no hay suficientes tokens; escribir NO para los casos faltantes
-            print(f"[ERROR] Entrada truncada en {in_path} (caso {case_no+1}). Se marcará como NO.", file=sys.stderr)
-            out_lines.append("NO")
-            # rellenar los casos restantes con NO
-            for _ in range(case_no + 1, t):
-                out_lines.append("NO")
-            break
-        except ValueError:
-            print(f"[ERROR] N o K no son enteros en {in_path} (caso {case_no+1}). Se marcará como NO.", file=sys.stderr)
-            out_lines.append("NO")
-            # intentar continuar leyendo pero es probable que falle; para simplicidad, rellenar con NO
-            for _ in range(case_no + 1, t):
-                out_lines.append("NO")
-            break
-
-        # Leer N valores a_i
-        a = []
-        malformed = False
-        for i in range(N):
-            try:
-                a.append(int(next(it)))
-            except StopIteration:
-                print(f"[ERROR] Faltan valores a_i en {in_path} (caso {case_no+1}). Se marcará como NO.", file=sys.stderr)
-                malformed = True
-                break
-            except ValueError:
-                print(f"[ERROR] Valor a_i no entero en {in_path} (caso {case_no+1}). Se marcará como NO.", file=sys.stderr)
-                malformed = True
-                break
-
-        if malformed:
-            out_lines.append("NO")
-            # intentar sincronizar: no hay forma fiable de sincronizar tokens, así que rellenar el resto con NO
-            for _ in range(case_no + 1, t):
-                out_lines.append("NO")
-            break
-
-        # Resolver el caso
-        try:
-            ok = solve_case(N, K, a)
-            out_lines.append("SI" if ok else "NO")
-        except MemoryError:
-            # En caso de falta de memoria, reportar y escribir NO
-            print(f"[ERROR] MemoryError al resolver {in_path} (caso {case_no+1}). Se marcará como NO.", file=sys.stderr)
-            out_lines.append("NO")
+            tokens = read_int_tokens(f)
         except Exception as e:
-            print(f"[ERROR] Excepción al resolver {in_path} (caso {case_no+1}): {e}", file=sys.stderr)
-            out_lines.append("NO")
+            write_err(f, subtask, case, f"Lectura de tokens fallida: {e}")
+            continue
 
-    # Escribir archivo .out (sobrescribe si existe)
-    try:
-        with open(out_path, "w", encoding="utf-8") as fo:
-            fo.write("\n".join(out_lines) + ("\n" if out_lines else ""))
-    except Exception as e:
-        print(f"[ERROR] No se pudo escribir {out_path}: {e}", file=sys.stderr)
-        return
+        try:
+            results = process_file_tokens(tokens)
+        except Exception as e:
+            write_err(f, subtask, case, f"Formato inválido: {e}")
+            continue
 
-    print(f"[OK] Procesado {os.path.basename(in_path)} -> {os.path.basename(out_path)} ({len(out_lines)} casos).")
+        # Escribir .out con los resultados
+        write_out(f, subtask, case, results)
 
-def main():
-    files = sorted(glob.glob(PATTERN))
-    if not files:
-        print(f"No se encontraron archivos '{PATTERN}'. Asegúrate de que la carpeta '{CASES_DIR}/' existe y contiene archivos .in.", file=sys.stderr)
-        return
 
-    for path in files:
-        process_file(path)
+def main() -> None:
+    process_all_cases()
+
 
 if __name__ == "__main__":
     main()
